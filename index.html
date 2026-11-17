@@ -142,6 +142,7 @@ label.item{cursor:pointer;margin:0;color:var(--ink);font-size:inherit;display:fl
    <button class="btn ghost" id="toBank">從考古題總集挑題</button>
    <button class="btn" id="mSave">存到出卷紀錄</button>
    <button class="btn ghost" id="mUpd" style="display:none">更新原紀錄</button>
+   <button class="btn ghost" id="mShuf">🔀 隨機排列題目</button><button class="btn ghost" id="mUnshuf" style="display:none">還原順序</button>
    <button class="btn ghost" id="mPdf">輸出 PDF</button>
    <button class="btn ghost" id="mDoc">輸出 Word 檔</button>
    <button class="btn ghost" id="mClear">清空</button>
@@ -355,7 +356,7 @@ $("evAdd").onclick=function(){
 };
 
 /* ---------- 出題（文件編輯器） ---------- */
-var ed=$("doc"),docInit=false,savedRange=null;
+var ed=$("doc"),docInit=false,savedRange=null,prevOrder=null;
 var DEF='<h2 style="text-align:center">考卷標題</h2>';
 function liHtml(q,a,imgs,qid){return '<li data-ans="'+esc(a||"")+'"'+(qid?' data-qid="'+esc(qid)+'"':"")+">"+(imgs||[]).map(function(u){return '<img src="'+u+'">'}).join("")+esc(q).replace(/\n/g,"<br>").replace(/ {2,}/g,function(m){return new Array(m.length+1).join("&nbsp;")})+"</li>"}
 function fromItems(title,items){
@@ -364,7 +365,7 @@ function fromItems(title,items){
  return h;
 }
 function nLi(){return ed.querySelectorAll("li").length}
-function sync(){L.html=ed.innerHTML;saveL();$("mCount").textContent=nLi();$("bD").textContent=nLi()}
+function sync(){prevOrder=null;$("mUnshuf").style.display="none";L.html=ed.innerHTML;saveL();$("mCount").textContent=nLi();$("bD").textContent=nLi()}
 function docTitle(html){var d=document.createElement("div");d.innerHTML=html;var f=d.firstElementChild;return((f?f.textContent:d.textContent)||"").trim().slice(0,40)||"未命名考卷"}
 function renderDraft(){
  if(!docInit){docInit=true;ed.innerHTML=L.html||fromItems(L.title,L.draft)}
@@ -402,6 +403,18 @@ ed.addEventListener("drop",function(e){if(e.dataTransfer&&e.dataTransfer.files.l
 $("tImgBtn").onclick=function(){$("tImg").click()};
 $("tImg").onchange=function(){if(this.files[0])insImg(this.files[0]);this.value=""};
 $("mClear").onclick=function(){if(confirm("確定清空目前的考卷？")){ed.innerHTML=DEF;L.pid=null;sync();renderDraft()}};
+$("mShuf").onclick=function(){
+ var ols=Array.prototype.filter.call(ed.children,function(c){return c.tagName==="OL"}),all=[],counts=[];
+ ols.forEach(function(o){var n=0;Array.prototype.forEach.call(o.children,function(li){if(li.tagName==="LI"){all.push(li);n++}});counts.push(n)});
+ if(all.length<2){toast("至少要有 2 題才能隨機排列");return}
+ var before=ed.innerHTML,orig=all.slice(),sh=all.slice(),tries=0;
+ do{for(var i=sh.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=sh[i];sh[i]=sh[j];sh[j]=t}tries++}
+ while(tries<10&&sh.every(function(x,k){return x===orig[k]}));
+ var k=0;ols.forEach(function(o,idx){o.innerHTML="";for(var n=0;n<counts[idx];n++)o.appendChild(sh[k++])});
+ sync();prevOrder=before;$("mUnshuf").style.display="";
+ toast("已隨機排列 "+all.length+" 題，答案頁也會跟著新順序");
+};
+$("mUnshuf").onclick=function(){if(prevOrder===null)return;ed.innerHTML=prevOrder;sync();toast("已還原成排列前的順序")};
 function savePaper(upd){
  if(!ed.textContent.trim()&&!ed.querySelector("img")){toast("考卷是空的");return}
  if(C&&user&&ed.innerHTML.length>900000){toast("考卷內容太大（圖片太多），請減少圖片後再存");return}
